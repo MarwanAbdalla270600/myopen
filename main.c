@@ -1,9 +1,12 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
+#include <sys/types.h>
+#include <sys/wait.h>
+
 
 FILE *
-my_popen (const char *cmd)
+my_popen_read(const char *cmd)
 {
     int fd[2];
     int read_fd, write_fd;
@@ -56,12 +59,40 @@ my_popen (const char *cmd)
     }
 }
 
+
+int mypclose(FILE *stream) {
+    int pid;
+    int status;
+
+    if (stream == NULL) {
+        return -1;
+    }
+
+    if (fclose(stream) != 0) {  /* close the pipe */
+        return -1;
+    }
+
+    pid = waitpid(-1, &status, 0);  /* wait for child process to terminate */
+    if (pid == -1) {
+        return -1;
+    }
+
+    if (WIFEXITED(status)) {  /* child process terminated normally */
+        return WEXITSTATUS(status);
+    } else if (WIFSIGNALED(status)) {  /* child process terminated by a signal */
+        return 128 + WTERMSIG(status);
+    } else {  /* should never happen */
+        return -1;
+    }
+}
+
+
 int main ()
 {
-    FILE *p = my_popen ("ls -l");
+    FILE *p = my_popen_read("ls -l");
     char buffer[1024];
     while (fgets(buffer, 1024, p)) {
         printf (" => %s", buffer);
     }
-    fclose(p);
+    mypclose(p);
 }
