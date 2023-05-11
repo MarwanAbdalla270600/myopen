@@ -121,7 +121,7 @@ int mypclose(FILE *stream)
 int main()
 {
 
-    FILE *ls = mypopen("ls -la", "r");
+    FILE *ls = mypopen("ls", "r");
     FILE *wc = mypopen("wc", "w");
     // we consume the output of `ls` and feed it to `wc`
     char buf[1024];
