@@ -27,8 +27,8 @@ FILE *mypopen(const char *command, const char *mode)
     bool read = false;
     bool write = false;
 
-     
-    if(!setMode(mode, &read, &write)) {
+    if (!setMode(mode, &read, &write))
+    {
         fprintf(stderr, "pls enter a valid mode\n");
         exit(EXIT_FAILURE);
     }
@@ -36,7 +36,7 @@ FILE *mypopen(const char *command, const char *mode)
     int pipefd[2];
     pid_t pid;
     FILE *fp;
-    
+
     if (pipe(pipefd) == -1)
     {
         return NULL;
@@ -120,7 +120,6 @@ int mypclose(FILE *stream)
 
 int main()
 {
-
     FILE *ls = mypopen("ls", "r");
     FILE *wc = mypopen("wc", "w");
     // we consume the output of `ls` and feed it to `wc`
