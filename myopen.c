@@ -1,13 +1,8 @@
-#include <stdio.h>
-#include <stdlib.h>
-#include <unistd.h>
-#include <sys/wait.h>
-#include <stdbool.h>
 
-#define READ_END 0
-#define WRITE_END 1
+#include "myopen.h"
 
-bool setMode(const char *mode, bool *read, bool *write)
+
+static bool setMode(const char *mode, bool *read, bool *write)
 {
     if (mode[0] == 'r' && mode[1] == '\0')
     {
