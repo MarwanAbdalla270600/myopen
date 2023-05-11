@@ -3,96 +3,134 @@
 #include <unistd.h>
 #include <sys/types.h>
 #include <sys/wait.h>
+#include <fcntl.h>
+#include <string.h>
+#include <stdbool.h>
 
+#define READ_END 0
+#define WRITE_END 1
 
-FILE *
-my_popen_read(const char *cmd)
+bool setMode(const char *mode, bool *read, bool *write)
 {
-    int fd[2];
-    int read_fd, write_fd;
-    int pid;               
+    if (mode[0] == 'r' && mode[1] == '\0')
+    {
+        *read = true;
+        return true;
+    }
+    if (mode[0] == 'w' && mode[1] == '\0')
+    {
+        *write = true;
+        return true;
+    }
+    return false;
+}
 
-    /* First, create a pipe and a pair of file descriptors for its both ends */
-    if(pipe(fd) == -1) {
-        fprintf(stderr, "An error has occured with creating the pipe\n");
+FILE *mypopen(const char *command, const char *mode)
+{
+    bool read = false;
+    bool write = false;
+
+     
+    if(!setMode(mode, &read, &write)) {
+        fprintf(stderr, "pls enter a valid mode\n");
+        exit(EXIT_FAILURE);
+    }
+
+    int pipefd[2];
+    pid_t pid;
+    FILE *fp;
+    
+    if (pipe(pipefd) == -1)
+    {
         return NULL;
     }
-    
-    read_fd = fd[0];
-    write_fd = fd[1];
 
-    /* Now fork in order to create process from we'll read from */
     pid = fork();
-
-    if(pid == -1) {
-        fprintf(stderr, "An error has occured with forking the process\n");
+    if (pid == -1)
+    {
+        fprintf(stderr, "an error has occured with forking the process");
         return NULL;
     }
-    
-    
-    if (pid == 0) {
-        /* Child process */
+    if (pid == 0)
+    {
+        if (read)
+        { // child process reads from pipe
+            close(pipefd[READ_END]);
+            dup2(pipefd[WRITE_END], STDOUT_FILENO);
+            close(pipefd[WRITE_END]);
+        }
+        else if (write)
+        { // child process writes to pipe
+            close(pipefd[WRITE_END]);
+            dup2(pipefd[READ_END], STDIN_FILENO);
+            close(pipefd[READ_END]);
+        }
 
-        /* Close "read" endpoint - child will only use write end */
-        close(read_fd);
-
-        /* Now "bind" fd 1 (standard output) to our "write" end of pipe */
-        dup2(write_fd,1);
-
-        /* Close original descriptor we got from pipe() */
-        close(write_fd);
-
-        /* Execute command via shell - this will replace current process */
-        execl("/bin/sh", "sh", "-c", cmd, NULL);
-
-        /* Don't let compiler be angry with us */
-        return NULL;
-    } else {
-        /* Parent */
-
-        /* Close "write" end, not needed in this process */
-        close(write_fd);
-
-        /* Parent process is simpler - just create FILE* from file descriptor,
-           for compatibility with popen() */
-        return fdopen(read_fd, "r");
+        // execute the command using the shell
+        execl("/bin/sh", "sh", "-c", command, NULL);
+        _exit(EXIT_FAILURE);
+    }
+    else
+    {
+        if (read)
+        {
+            close(pipefd[WRITE_END]);
+            fp = fdopen(pipefd[READ_END], "r");
+        }
+        else
+        {
+            close(pipefd[READ_END]);
+            fp = fdopen(pipefd[WRITE_END], "w");
+        }
+        return fp;
     }
 }
 
-
-int mypclose(FILE *stream) {
+int mypclose(FILE *stream)
+{
     int pid;
     int status;
 
-    if (stream == NULL) {
+    if (stream == NULL)
+    {
         return -1;
     }
 
-    if (fclose(stream) != 0) {  /* close the pipe */
+    if (fclose(stream) != 0)
+    { /* close the pipe */
         return -1;
     }
 
-    pid = waitpid(-1, &status, 0);  /* wait for child process to terminate */
-    if (pid == -1) {
+    pid = waitpid(-1, &status, 0); /* wait for child process to terminate */
+    if (pid == -1)
+    {
         return -1;
     }
 
-    if (WIFEXITED(status)) {  /* child process terminated normally */
+    if (WIFEXITED(status))
+    { /* child process terminated normally */
         return WEXITSTATUS(status);
-    } else if (WIFSIGNALED(status)) {  /* child process terminated by a signal */
+    }
+    else if (WIFSIGNALED(status))
+    { /* child process terminated by a signal */
         return 128 + WTERMSIG(status);
-    } else {  /* should never happen */
+    }
+    else
+    { /* should never happen */
         return -1;
     }
 }
 
-
-int main ()
+int main()
 {
-    FILE *p = my_popen_read("ls -l");
-    char buffer[1024];
-    while (fgets(buffer, 1024, p)) {
-        printf (" => %s", buffer);
-    }
-    mypclose(p);
+
+    FILE *ls = mypopen("ls -la", "r");
+    FILE *wc = mypopen("wc", "w");
+    // we consume the output of `ls` and feed it to `wc`
+    char buf[1024];
+    while (fgets(buf, sizeof(buf), ls) != NULL)
+        fputs(buf, wc);
+    // once we're done, we close the streams
+    mypclose(ls);
+    mypclose(wc);
 }
