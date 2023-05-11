@@ -11,13 +11,11 @@ bool setMode(const char *mode, bool *read, bool *write)
 {
     if (mode[0] == 'r' && mode[1] == '\0')
     {
-        *read = true;
-        return true;
+        return *read = true;
     }
     if (mode[0] == 'w' && mode[1] == '\0')
     {
-        *write = true;
-        return true;
+        return *write = true;
     }
     return false;
 }
