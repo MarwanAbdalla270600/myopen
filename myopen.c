@@ -1,6 +1,4 @@
-
 #include "myopen.h"
-
 
 static bool setMode(const char *mode, bool *read, bool *write)
 {
